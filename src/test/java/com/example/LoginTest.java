@@ -8,13 +8,11 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 
 import java.time.Duration;
 
-public class FirstTest {
+public class LoginTest {
 
     private WebDriver driver;
 
@@ -25,36 +23,65 @@ public class FirstTest {
         driver = new ChromeDriver(options);
     }
 
-    @Test
-    public void openGoogleAndSearch() {
-        driver.get("https://www.google.com/ncr");
-
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-
-        // Закрываем consent, если есть
-        try {
-            WebElement acceptCookies = wait.until(ExpectedConditions.elementToBeClickable(By.id("L2AGLb")));
-            acceptCookies.click();
-        } catch (Exception e) {
-            // если баннера нет — продолжаем
-        }
-
-        // Ждём, пока поле поиска станет кликабельным
-        WebElement searchBox = wait.until(ExpectedConditions.elementToBeClickable(By.name("q")));
-        searchBox.clear();
-        searchBox.sendKeys("Selenium TestNG");
-        searchBox.submit();
-
-        // Ждём, пока заголовок обновится
-        wait.until(ExpectedConditions.titleContains("Selenium TestNG"));
-
-        Assert.assertTrue(driver.getTitle().contains("Selenium TestNG"));
-    }
-
     @AfterMethod
     public void tearDown() {
-        if (driver != null) {
+        if(driver != null) {
             driver.quit();
         }
+    }
+
+    // ----------------- DataProvider для позитивных тестов -----------------
+    @DataProvider(name = "validCredentials")
+    public Object[][] validCredentials() {
+        return new Object[][] {
+                {"tomsmith", "SuperSecretPassword!"}
+                // It is possible to add some more users to check boundary values
+        };
+    }
+
+    @Test(dataProvider = "validCredentials")
+    public void testSuccessfulLogin(String usernameValue, String passwordValue) {
+        driver.get("https://the-internet.herokuapp.com/login");
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
+        WebElement usernameInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("username")));
+        WebElement passwordInput = driver.findElement(By.id("password"));
+        WebElement loginButton = driver.findElement(By.cssSelector("button[type='submit']"));
+
+        usernameInput.sendKeys(usernameValue);
+        passwordInput.sendKeys(passwordValue);
+        loginButton.click();
+
+        WebElement successMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("flash")));
+        Assert.assertTrue(successMessage.getText().contains("You logged into a secure area!"));
+    }
+
+    // ----------------- DataProvider для негативных тестов -----------------
+    @DataProvider(name = "invalidCredentials")
+    public Object[][] invalidCredentials() {
+        return new Object[][] {
+                {"wronguser", "wrongpassword", "Your username is invalid!"},
+                {"tomsmith", "wrongpassword", "Your password is invalid!"},
+                {"", "", "Your username is invalid!"},
+                {"", "SuperSecretPassword!", "Your username is invalid!"},
+                {"tomsmith", "", "Your password is invalid!"}
+        };
+    }
+
+    @Test(dataProvider = "invalidCredentials")
+    public void testInvalidLogin(String usernameValue, String passwordValue, String expectedMessage) {
+        driver.get("https://the-internet.herokuapp.com/login");
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
+        WebElement usernameInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("username")));
+        WebElement passwordInput = driver.findElement(By.id("password"));
+        WebElement loginButton = driver.findElement(By.cssSelector("button[type='submit']"));
+
+        usernameInput.sendKeys(usernameValue);
+        passwordInput.sendKeys(passwordValue);
+        loginButton.click();
+
+        WebElement errorMessage = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("flash")));
+        Assert.assertTrue(errorMessage.getText().contains(expectedMessage));
     }
 }
